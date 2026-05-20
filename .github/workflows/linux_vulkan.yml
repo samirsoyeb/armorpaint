@@ -1,55 +1,23 @@
 name: Linux (Vulkan)
-
 on:
   workflow_dispatch:
-
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-
-      - name: Apt Update
-        run: sudo apt-get update
-
-      - name: Apt Install
-        run: sudo apt install make clang libvulkan-dev libgtk-3-dev --yes --quiet
-
-      - name: Compile Application
+      - name: Build
         run: |
-          # Move explicitly into the armorcore framework if it exists
-          if [ -d "armorcore" ]; then
-            node armorcore/Kinc/make --from armorcore -g opengl --compiler clang --compile
-          elif [ -d "paint" ]; then
-            cd paint
-            ../base/make --compile
-          elif [ -d "armorpaint" ]; then
-            cd armorpaint
-            node armorcore/Kinc/make --from armorcore -g opengl --compiler clang --compile
-          else
-            # Fail-safe direct compile fallback execution
-            node armorcore/Kinc/make -g opengl --compiler clang --compile || true
-          fi
-
-      - name: Force Asset Packaging
-        run: |
-          mkdir -p output_zip
-          
-          # Direct-target copy instead of infinite searching loops
-          cp -r armorcore/Deployment/* output_zip/ 2>/dev/null || true
-          cp -r paint/build/krom/* output_zip/ 2>/dev/null || true
-          cp -r armorpaint/build/krom/* output_zip/ 2>/dev/null || true
-          cp -r build/krom/* output_zip/ 2>/dev/null || true
-          
-          # If the folder remains stubbornly empty, copy the root data maps so the script never skips
-          if [ -d "data" ]; then cp -r data output_zip/; fi
-          if [ -d "shaders" ]; then cp -r shaders output_zip/; fi
-
-      - name: Upload Build Artifact
-        uses: actions/upload-artifact@v4
+          sudo apt-get update
+          sudo apt install make clang libvulkan-dev libgtk-3-dev --yes --quiet
+          if [ -d "armorpaint" ]; then cd armorpaint; fi
+          if [ -d "paint" ]; then cd paint; fi
+          if [ -f "../base/make" ]; then ../base/make --compile; else node armorcore/Kinc/make --from armorcore -g opengl --compiler clang --compile; fi
+          mkdir -p ../final_zip
+          cp -r build/krom/* ../final_zip/ 2>/dev/null || cp -r paint/build/krom/* ../final_zip/ 2>/dev/null || cp -r armorpaint/build/krom/* ../final_zip/ 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
         with:
           name: ArmorPaint-Linux-1.0
-          path: output_zip/
+          path: final_zip/
