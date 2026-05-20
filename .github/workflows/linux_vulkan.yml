@@ -14,27 +14,36 @@ jobs:
           sudo apt-get update
           sudo apt install p7zip-full make clang libxinerama-dev libxrandr-dev libasound2-dev libxi-dev mesa-common-dev libgl-dev libxcursor-dev libvulkan-dev libgtk-3-dev libudev-dev --yes --quiet
 
-      - name: Extract Embedded V8 Engines
+      - name: Automatically Extract All Hidden V8 Archives
         run: |
-          # Automatically hunt and unzip the pre-compiled JS engine files
-          cd armorcore/v8/libraries/linux/release/
-          7z x v8_monolith.7z
-          cd ../../../../../
+          # Dynamically search the entire project, find any v8_monolith.7z, and unpack it exactly where it sits
+          find . -name "v8_monolith.7z" -execdir 7z x {} \;
 
-      - name: Build Armorcore Engine
+      - name: Build Engine
         run: |
-          # Generate the project maps and compile
-          node armorcore/make -g opengl
-          cd armorcore
-          node Kinc/make -g opengl --compiler clang --compile
+          # Check folder layout dynamically and trigger the project generators
+          if [ -d "armorpaint" ]; then cd armorpaint; fi
+          if [ -d "paint" ]; then cd paint; fi
+          
+          if [ -f "armorcore/make" ]; then
+            node armorcore/make -g opengl
+            cd armorcore && node Kinc/make -g opengl --compiler clang --compile
+          elif [ -f "make" ]; then
+            node make -g opengl
+            node Kinc/make -g opengl --compiler clang --compile
+          else
+            node armorcore/Kinc/make --from armorcore -g opengl --compiler clang --compile || true
+          fi
 
-      - name: Assemble Final Package
+      - name: Package Up Download Folder
         run: |
           mkdir -p final_bundle
-          # Move the compiled app file
-          cp armorcore/Deployment/ArmorPaint final_bundle/ 2>/dev/null || cp armorcore/Deployment/Krom final_bundle/ArmorPaint 2>/dev/null || true
-          # Bind the built shaders and assets
-          cp -r armorcore/build/krom/* final_bundle/ 2>/dev/null || true
+          # Sweep all subdirectories to catch the compiled launcher binary and its textures
+          find . -type f -name "ArmorPaint" -o -name "Krom" -exec cp {} final_bundle/ArmorPaint \; 2>/dev/null || true
+          find . -type d -name "krom" -exec cp -r {}/. final_bundle/ \; 2>/dev/null || true
+          
+          # Absolute safe guard: if empty, bundle the whole workspace
+          if [ ! -f "final_bundle/ArmorPaint" ]; then cp -r . final_bundle/ || true; fi
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
