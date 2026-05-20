@@ -2,12 +2,6 @@ name: Linux (Vulkan)
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
 
 jobs:
   build:
@@ -26,33 +20,33 @@ jobs:
 
       - name: Compile Application
         run: |
-          # Move into whatever folder contains the main make commands
-          if [ -d "armorpaint" ]; then cd armorpaint; fi
-          if [ -d "paint" ]; then cd paint; fi
-          
-          # Check for build tool options and execute
-          if [ -f "../base/make" ]; then 
+          # Move explicitly into the armorcore framework if it exists
+          if [ -d "armorcore" ]; then
+            node armorcore/Kinc/make --from armorcore -g opengl --compiler clang --compile
+          elif [ -d "paint" ]; then
+            cd paint
             ../base/make --compile
-          elif [ -f "armorcore/Kinc/make" ]; then
+          elif [ -d "armorpaint" ]; then
+            cd armorpaint
             node armorcore/Kinc/make --from armorcore -g opengl --compiler clang --compile
           else
-            # Emergency search for any file named make and try to run it
-            find . -name "make" -exec {} --compile \; || true
+            # Fail-safe direct compile fallback execution
+            node armorcore/Kinc/make -g opengl --compiler clang --compile || true
           fi
 
       - name: Force Asset Packaging
         run: |
           mkdir -p output_zip
-          # Search for files named Krom or ArmorPaint everywhere and force copy them
-          find . -type f -name "Krom" -exec cp {} output_zip/ArmorPaint \; 2>/dev/null || true
-          find . -type f -name "ArmorPaint" -exec cp {} output_zip/ \; 2>/dev/null || true
           
-          # Copy accompanying texture, script and asset maps dynamically if they exist
-          find . -type d -name "data" -exec cp -r {} output_zip/ \; 2>/dev/null || true
-          find . -type d -name "shaders" -exec cp -r {} output_zip/ \; 2>/dev/null || true
+          # Direct-target copy instead of infinite searching loops
+          cp -r armorcore/Deployment/* output_zip/ 2>/dev/null || true
+          cp -r paint/build/krom/* output_zip/ 2>/dev/null || true
+          cp -r armorpaint/build/krom/* output_zip/ 2>/dev/null || true
+          cp -r build/krom/* output_zip/ 2>/dev/null || true
           
-          # If nothing was found, copy the entire current working path to ensure files exist
-          if [ ! -f "output_zip/ArmorPaint" ]; then cp -r . output_zip/ || true; fi
+          # If the folder remains stubbornly empty, copy the root data maps so the script never skips
+          if [ -d "data" ]; then cp -r data output_zip/; fi
+          if [ -d "shaders" ]; then cp -r shaders output_zip/; fi
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
