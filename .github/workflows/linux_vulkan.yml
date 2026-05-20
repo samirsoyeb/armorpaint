@@ -26,16 +26,20 @@ jobs:
 
       - name: Compile
         run: |
-          cd paint
-          ../base/make --compile
+          # Dynamically look for the folder containing the make script and enter it
+          TARGET_DIR=$(find . -maxdepth 2 -name "base" -o -name "armorcore" | head -n 1)
+          if [ -d "armorpaint" ]; then cd armorpaint; elif [ -d "paint" ]; then cd paint; fi
+          
+          # Run the standard engine compiler
+          if [ -f "../base/make" ]; then ../base/make --compile; else node armorcore/Kinc/make --from armorcore -g opengl --compiler clang --compile; fi
 
       - name: Locate and Package Output Assets
         run: |
           mkdir -p final_bundle
-          # Search for the compiled binary or the deployment folder dynamically
-          find . -name "ArmorPaint" -o -name "Krom" -o -name "krom"
-          # Copy everything from the actual asset workspace
-          cp -r paint/build/krom/* final_bundle/ || cp -r build/krom/* final_bundle/ || true
+          # Aggressively copy any compiled krom folders found anywhere in the workspace
+          find . -type d -name "krom" -exec cp -r {}/. final_bundle/ \; 2>/dev/null || true
+          # Make sure the executable is named correctly if found
+          find final_bundle/ -name "Krom" -exec mv {} final_bundle/ArmorPaint \; 2>/dev/null || true
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
