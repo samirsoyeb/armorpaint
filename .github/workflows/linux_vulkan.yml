@@ -8,16 +8,18 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Build
+      - name: Install System Graphics Tools
         run: |
           sudo apt-get update
           sudo apt install make clang libvulkan-dev libgtk-3-dev --yes --quiet
-          if [ -d "armorpaint" ]; then cd armorpaint; fi
-          if [ -d "paint" ]; then cd paint; fi
-          if [ -f "../base/make" ]; then ../base/make --compile; else node armorcore/Kinc/make --from armorcore -g opengl --compiler clang --compile; fi
-          mkdir -p ../final_zip
-          cp -r build/krom/* ../final_zip/ 2>/dev/null || cp -r paint/build/krom/* ../final_zip/ 2>/dev/null || cp -r armorpaint/build/krom/* ../final_zip/ 2>/dev/null || true
-      - uses: actions/upload-artifact@v4
+      - name: Build Application
+        run: |
+          # Move directly into the painting repository folder
+          cd paint
+          # Run the engine compiler using the backward tool path
+          ../base/make --compile
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
         with:
           name: ArmorPaint-Linux-1.0
-          path: final_zip/
+          path: paint/build/krom/
