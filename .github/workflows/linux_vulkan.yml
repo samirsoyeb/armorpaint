@@ -29,10 +29,16 @@ jobs:
           cd paint
           ../base/make --compile
 
+      - name: Locate and Package Output Assets
+        run: |
+          mkdir -p final_bundle
+          # Search for the compiled binary or the deployment folder dynamically
+          find . -name "ArmorPaint" -o -name "Krom" -o -name "krom"
+          # Copy everything from the actual asset workspace
+          cp -r paint/build/krom/* final_bundle/ || cp -r build/krom/* final_bundle/ || true
+
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ArmorPaint-Linux-1.0
-          path: |
-            build/krom/
-            paint/build/krom/
+          path: final_bundle/
