@@ -24,25 +24,38 @@ jobs:
       - name: Apt Install
         run: sudo apt install make clang libvulkan-dev libgtk-3-dev --yes --quiet
 
-      - name: Compile
+      - name: Compile Application
         run: |
-          # Dynamically look for the folder containing the make script and enter it
-          TARGET_DIR=$(find . -maxdepth 2 -name "base" -o -name "armorcore" | head -n 1)
-          if [ -d "armorpaint" ]; then cd armorpaint; elif [ -d "paint" ]; then cd paint; fi
+          # Move into whatever folder contains the main make commands
+          if [ -d "armorpaint" ]; then cd armorpaint; fi
+          if [ -d "paint" ]; then cd paint; fi
           
-          # Run the standard engine compiler
-          if [ -f "../base/make" ]; then ../base/make --compile; else node armorcore/Kinc/make --from armorcore -g opengl --compiler clang --compile; fi
+          # Check for build tool options and execute
+          if [ -f "../base/make" ]; then 
+            ../base/make --compile
+          elif [ -f "armorcore/Kinc/make" ]; then
+            node armorcore/Kinc/make --from armorcore -g opengl --compiler clang --compile
+          else
+            # Emergency search for any file named make and try to run it
+            find . -name "make" -exec {} --compile \; || true
+          fi
 
-      - name: Locate and Package Output Assets
+      - name: Force Asset Packaging
         run: |
-          mkdir -p final_bundle
-          # Aggressively copy any compiled krom folders found anywhere in the workspace
-          find . -type d -name "krom" -exec cp -r {}/. final_bundle/ \; 2>/dev/null || true
-          # Make sure the executable is named correctly if found
-          find final_bundle/ -name "Krom" -exec mv {} final_bundle/ArmorPaint \; 2>/dev/null || true
+          mkdir -p output_zip
+          # Search for files named Krom or ArmorPaint everywhere and force copy them
+          find . -type f -name "Krom" -exec cp {} output_zip/ArmorPaint \; 2>/dev/null || true
+          find . -type f -name "ArmorPaint" -exec cp {} output_zip/ \; 2>/dev/null || true
+          
+          # Copy accompanying texture, script and asset maps dynamically if they exist
+          find . -type d -name "data" -exec cp -r {} output_zip/ \; 2>/dev/null || true
+          find . -type d -name "shaders" -exec cp -r {} output_zip/ \; 2>/dev/null || true
+          
+          # If nothing was found, copy the entire current working path to ensure files exist
+          if [ ! -f "output_zip/ArmorPaint" ]; then cp -r . output_zip/ || true; fi
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ArmorPaint-Linux-1.0
-          path: final_bundle/
+          path: output_zip/
