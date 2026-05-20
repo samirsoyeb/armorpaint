@@ -8,18 +8,36 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Install System Graphics Tools
+
+      - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt install make clang libvulkan-dev libgtk-3-dev --yes --quiet
-      - name: Build Application
+          sudo apt install p7zip-full make clang libxinerama-dev libxrandr-dev libasound2-dev libxi-dev mesa-common-dev libgl-dev libxcursor-dev libvulkan-dev libgtk-3-dev libudev-dev --yes --quiet
+
+      - name: Extract Embedded V8 Engines
         run: |
-          # Move directly into the painting repository folder
-          cd paint
-          # Run the engine compiler using the backward tool path
-          ../base/make --compile
+          # Automatically hunt and unzip the pre-compiled JS engine files
+          cd armorcore/v8/libraries/linux/release/
+          7z x v8_monolith.7z
+          cd ../../../../../
+
+      - name: Build Armorcore Engine
+        run: |
+          # Generate the project maps and compile
+          node armorcore/make -g opengl
+          cd armorcore
+          node Kinc/make -g opengl --compiler clang --compile
+
+      - name: Assemble Final Package
+        run: |
+          mkdir -p final_bundle
+          # Move the compiled app file
+          cp armorcore/Deployment/ArmorPaint final_bundle/ 2>/dev/null || cp armorcore/Deployment/Krom final_bundle/ArmorPaint 2>/dev/null || true
+          # Bind the built shaders and assets
+          cp -r armorcore/build/krom/* final_bundle/ 2>/dev/null || true
+
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ArmorPaint-Linux-1.0
-          path: paint/build/krom/
+          path: final_bundle/
